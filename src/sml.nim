@@ -3,7 +3,7 @@ import ./[wsv]
 
 type
   NodeType = enum
-    ntElement, ntAttribute, ntComment, ntNiltype
+    ntElement, ntAttribute, ntComment, ntEndkeyword, ntNiltype
 
   SmlNode* = ref object
     name*: string
@@ -61,8 +61,7 @@ proc parseSmlString*(content: string): SmlDocument =
     parseSmlTree(smlnode, result.endkeyword, lines, idx)
     result.childs.add(smlnode)
 
-proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], idx: var int,
-                  pendingElement: var bool) =
+proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], idx: var int) =
   echo idx
   while idx < lines.len()-1:
     let
@@ -70,6 +69,21 @@ proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], i
     echo wsvline.values
     var smlnode = SmlNode()
     smlnode.type = getNodetype(wsvline)
+
+    if (smlnode.type == ntElement) and not pendingElement:
+      # new Element found
+      pendingElement = true
+      smlnode.name = wsvline.values[0]
+      smlnode.comment = wsvline.comment
+      parseSmlTree(smlnode, endkeyword, lines, idx.inc())
+    elif (smlnode.type == ntElement) and pendingElement:
+
+
+
+
+
+
+    
     if (smlnode.type == ntElement) and not pendingElement:
       echo("Element with !pendingElement")
       if wsvline.values[0] == endkeyword:
@@ -102,9 +116,12 @@ proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], i
       echo("warn: skip this wsvline because of type Nodetype == Niltype")
     idx.inc()
       
-proc getNodetype*(wsvline: WsvLine): NodeType =
+proc getNodetype*(wsvline: WsvLine, endkeyword: string): NodeType =
   if len(wsvline.values) == 1:
-    return ntElement
+    if wsvline.values[0] == endkeyword:
+      return ntEndkeyword
+    else:
+      return ntElement
   elif len(wsvline.values) == 0 and wsvline.comment.len() > 0:
     return ntComment
   elif wsvline.values.len() > 1:
