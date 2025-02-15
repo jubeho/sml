@@ -61,7 +61,7 @@ proc stringSeqToWsvDoc*(tab: seq[seq[string]]): WsvDocument
 proc serializeWsvDoc*(wsvdoc: WsvDocument, fp: string, separator: char = '\t'): string
 
 proc toString(wsvline: WsvLine, separator: char = '\t'): string
-func stringToWsvString(s: string): string
+func stringToWsvString*(s: string): string
 
 func isWhitespaceChar(c: int32): bool
 func isDblQuote(r: Rune): bool
@@ -114,13 +114,18 @@ proc parseLine*(line: string): WsvLine =
           result.values.add(currentWord)
           currentWord = ""
     elif r == hashsign:
+      echo "found ", $r
       if isPendingDblQuote:
+        echo "isPendignDblQuote == true"
         currentWord.add($r)
       else:
+        echo "isPendignDblQuote == false"
         if currentWord.len() > 0:
           result.values.add(currentWord)
           currentWord = ""
           result.comment = $runes[i..^1]
+        else:
+          result.comment = $runes
         break
     else:
       if r.isDblQuote:
@@ -178,7 +183,7 @@ proc toString(wsvline: WsvLine, separator: char = '\t'): string =
     result.add(stringToWsvString(val))
     result.add($separator)
 
-func stringToWsvString(s: string): string =
+func stringToWsvString*(s: string): string =
   result = ""
   let runes = toRunes(s)
   var needSurroundingDblQuotes = false
@@ -227,33 +232,8 @@ func isDblQuote(r: Rune): bool =
     return false
     
 when isMainModule:
-  let wsvdoc = parseWsvFile("test.wsv")
-  for wsvline in wsvdoc.lines:
-    if wsvline.comment != "":
-      echo wsvline.comment
-      echo "______________________"
-    echo len(wsvline.values)
-    echo "=============="
-  for row in %wsvdoc:
-    echo $row
-  let tab: seq[seq[string]] = @[
-    @["1", "2", "3",],
-    @["eins1", "zwei2", "deri3\nsepp",],
-    @["oans", "zwoa", "drei",],
-    @["nix", "gscheid's! \"oder!?\"",],
-  ]
-
-  let nwsv = stringSeqToWsvDoc(tab)
-  echo len(nwsv.lines)
+  let s = """I bin das "Sepp""""
+  echo s.stringToWsvString()
+  var t = "Hello "
+  t.add("Welt")
   
-  let
-    txt = nwsv.serializeWsvDoc("sepp.wsv", ' ')
-    w3 = parseWsvString(txt)
-  let w3string = serializeWsvDoc(w3, "maria.esv", ' ')
-  writeFile("maria.wsv", w3string)
-  
-  if w3 == nwsv:
-    echo "subba - ois gleich!"
-  else:
-    echo "do bassd wos ned..."
-
