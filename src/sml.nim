@@ -20,7 +20,7 @@ type
 proc newSmlDocumentation*(): SmlDocument
 proc parseSmlFile*(fp: string): SmlDocument
 proc parseSmlString*(content: string): SmlDocument
-proc getNodetype*(wsvline: WsvLine): NodeType
+proc getNodetype*(wsvline: WsvLine, endkeyword: string ): NodeType
 proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], idx: var int)
 
 proc newSmlDocumentation*(): SmlDocument =
@@ -31,35 +31,35 @@ proc parseSmlFile*(fp: string): SmlDocument =
   
 proc parseSmlString*(content: string): SmlDocument =
   result = SmlDocument()
-  let lines = split(content, "\n")
+  var lines = split(content, "\n")
+  if lines[^1] == "":
+    lines = lines[0..^2]
   var
     idx = -1
-    pendingElement = false
   while idx < len(lines)-1:
     idx.inc()
-    let
-      wsvline = parseLine(lines[idx])
-      nodetype = getNodetype(wsvline)
-    if idx == 0:
-      if nodetype != ntElement:
-        echo("error - malformed SML-Document. First node must be Element")
-        system.quit()
-      result.name = wsvline.values[0]
-      pendingElement = true
-      if idx+1 >= lines.len()-1:
-        echo("error - malformed SML-Document. Root-Element has no Endkeyword")
-        system.quit()
-      let
-        endwsvline = parseLine(lines[idx+1])
-        lastnodetype = getNodetype(endwsvline)
-      if lastnodetype != ntElement:
-        echo("error - malformed SML-Document. Last-Element must be Endkeyword")
-        system.quit()
-      result.endkeyword = endwsvline.values[0]
-      continue
-    var smlnode = SmlNode()
+    let wsvline = parseLine(lines[idx])
+    if wsvline.values.len() != 1:
+      echo $idx, ": error - malformed SML-Document. First node must be Element ", $wsvline.values
+      system.quit()
+    
+    let endwsvline = parseLine(lines[^1])
+    if endwsvline.values.len() != 1:
+      echo lines[^2]
+      echo("error - malformed SML-Document. last line must be EndNode: ", $endwsvline.values)
+      system.quit()
+    result.name = wsvline.values[0]
+    result.endkeyword = endwsvline.values[0]
+    var smlnode = SmlNode(
+      name: result.name,
+      type: ntElement,
+    )
     parseSmlTree(smlnode, result.endkeyword, lines, idx)
     result.childs.add(smlnode)
+    echo smlnode.childs.len()
+    let s = smlnode.childs[0]
+    echo s.childs.len()
+    echo idx
 
 proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], idx: var int) =
   echo idx
@@ -68,54 +68,28 @@ proc parseSmlTree(parentnode: SmlNode, endkeyword: string, lines: seq[string], i
       wsvline = parseLine(lines[idx])
     echo wsvline.values
     var smlnode = SmlNode()
-    smlnode.type = getNodetype(wsvline)
+    smlnode.type = getNodetype(wsvline, endkeyword)
 
-    if (smlnode.type == ntElement) and not pendingElement:
+    if smlnode.type == ntEndkeyword:
+      return
+    elif (smlnode.type == ntElement):
       # new Element found
-      pendingElement = true
       smlnode.name = wsvline.values[0]
       smlnode.comment = wsvline.comment
-      parseSmlTree(smlnode, endkeyword, lines, idx.inc())
-    elif (smlnode.type == ntElement) and pendingElement:
-
-
-
-
-
-
-    
-    if (smlnode.type == ntElement) and not pendingElement:
-      echo("Element with !pendingElement")
-      if wsvline.values[0] == endkeyword:
-        echo("found END-Keyword")
-        pendingElement = false
-      else:
-        echo("found Element")
-        smlnode.name = wsvline.values[0]
-        parseSmlTree(smlnode, endkeyword, lines, idx)
-        parentnode.childs.add(smlnode)
-     elif (smlnode.type == ntElement) and pendingElement:
-      if wsvline.values[0] == endkeyword:
-        echo("found END-Keyword")
-        pendingElement = false
-      else:
-        echo("found Element")
-        smlnode.name = wsvline.values[0]
-        parseSmlTree(smlnode, endkeyword, lines, idx)
-        parentnode.childs.add(smlnode)
-    elif (smlnode.type == ntComment):
-      echo ("found Comment")
-      smlnode.comment = wsvline.comment
-    elif (smlnode.type == ntAttribute):
-      echo("found Attribute")
+      idx.inc()
+      parentnode.childs.add(
+        parseSmlTree(smlnode, endkeyword, lines, idx))
+    elif smlnode.type == ntAttribute:
       smlnode.name = wsvline.values[0]
-      smlnode.values = wsvline.values[1..^1]
+      smlnode.comment = wsvline.comment
+      parentnode.childs.add(smlnode)
+    elif smlnode.type == ntComment:
       smlnode.comment = wsvline.comment
       parentnode.childs.add(smlnode)
     else:
-      echo("warn: skip this wsvline because of type Nodetype == Niltype")
+      echo "skip this wsvline: ", $smlnode.type
     idx.inc()
-      
+
 proc getNodetype*(wsvline: WsvLine, endkeyword: string): NodeType =
   if len(wsvline.values) == 1:
     if wsvline.values[0] == endkeyword:
@@ -134,7 +108,7 @@ when isMainModule:
   for wsvline in wsvdoc.lines:
     echo wsvline.values
   let smldoc = parseSmlFile("test.sml")
-  echo smldoc.childs.len()
   echo smldoc.name
+  echo smldoc.childs.len()
   for smlnode in smldoc.childs:
     echo smlnode.name
