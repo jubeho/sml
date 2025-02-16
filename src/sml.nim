@@ -139,7 +139,8 @@ proc serializeTree(rootnode: SmlNode, text: var string, indent: var string, sep:
         text.add(sep)
         text.add(stringToWsvString(s))
       if smlnode.comment != "":
-        text.add(stringToWsvString(smlnode.comment))
+        text.add(sep)
+        text.add(smlnode.comment)
       text.add("\n")
     of ntComment:
       text.add(smlnode.comment)

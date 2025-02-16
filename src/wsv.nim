@@ -125,7 +125,7 @@ proc parseLine*(line: string): WsvLine =
           currentWord = ""
           result.comment = $runes[i..^1]
         else:
-          result.comment = $runes
+          result.comment = $runes[i..^1]
         break
     else:
       if r.isDblQuote:
@@ -232,8 +232,8 @@ func isDblQuote(r: Rune): bool =
     return false
     
 when isMainModule:
-  let s = """I bin das "Sepp""""
-  echo s.stringToWsvString()
-  var t = "Hello "
-  t.add("Welt")
-  
+  let w = parseWsvFile("test.sml")
+  for wline in w.lines:
+    echo wline.values
+    echo wline.comment
+    echo ("-------------------------")
